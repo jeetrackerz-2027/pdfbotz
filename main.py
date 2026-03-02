@@ -22,7 +22,7 @@ def save():
     with open(DATA_FILE, "w") as f:
         json.dump(data, f)
 
-def check_join(user_id):
+def is_joined(user_id):
     for ch in CHANNELS:
         member = bot.get_chat_member(ch, user_id)
         if member.status not in ["member", "administrator", "creator"]:
@@ -34,54 +34,53 @@ def start(message):
     user_id = message.from_user.id
     args = message.text.split()
 
-    if not check_join(user_id):
-        markup = InlineKeyboardMarkup()
-        markup.add(
-            InlineKeyboardButton("🔘 Join Channel 1", url="https://t.me/jeetrackerz")
-        )
-        markup.add(
-            InlineKeyboardButton("🔘 Join Channel 2", url="https://t.me/JEECBSENEETBOOKS")
-        )
-        markup.add(
-            InlineKeyboardButton("🎀 Try Again", callback_data="check_again")
-        )
-
-        bot.send_message(
-            message.chat.id,
-            "⚠️ Access Denied!\n\n"
-            "Pehle dono channel join karo.\n"
-            "Join karne ke baad 🎀 Try Again dabao.",
-            reply_markup=markup
-        )
-        return
-
     if len(args) > 1:
         key = args[1]
-        file_id = data["books"].get(key)
 
+        if not is_joined(user_id):
+            markup = InlineKeyboardMarkup()
+            markup.add(
+                InlineKeyboardButton("🔘 Join Channel 1", url="https://t.me/jeetrackerz")
+            )
+            markup.add(
+                InlineKeyboardButton("🔘 Join Channel 2", url="https://t.me/JEECBSENEETBOOKS")
+            )
+            markup.add(
+                InlineKeyboardButton("🎀 Try Again", callback_data=f"check_{key}")
+            )
+
+            bot.send_message(
+                message.chat.id,
+                "⚠️ Access Denied!\n\n"
+                "Pehle dono channel join karo.\n"
+                "Join karne ke baad 🎀 Try Again dabao.",
+                reply_markup=markup
+            )
+            return
+
+        file_id = data["books"].get(key)
         if file_id:
             bot.send_document(message.chat.id, file_id)
         else:
             bot.send_message(message.chat.id, "❌ Link expired ya book nahi mili.")
     else:
-        bot.send_message(message.chat.id, "Valid link use karo.")
+        bot.send_message(message.chat.id, "👋 Welcome! Admin se book link lo.")
 
-@bot.callback_query_handler(func=lambda call: call.data == "check_again")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("check_"))
 def check_again(call):
     user_id = call.from_user.id
+    key = call.data.split("_")[1]
 
-    if not check_join(user_id):
+    if not is_joined(user_id):
         bot.answer_callback_query(call.id, "Abhi bhi join nahi kiya 😒")
         return
 
-    bot.answer_callback_query(call.id, "✅ Join verified!")
-    bot.send_message(call.message.chat.id, "Ab link dubara open karo.")
-
-@bot.message_handler(commands=['add'])
-def add_book(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    bot.reply_to(message, "PDF bhejo aur caption me book ka key likho.")
+    file_id = data["books"].get(key)
+    if file_id:
+        bot.send_document(call.message.chat.id, file_id)
+        bot.answer_callback_query(call.id, "✅ Verified!")
+    else:
+        bot.send_message(call.message.chat.id, "❌ Book nahi mili.")
 
 @bot.message_handler(content_types=['document'])
 def save_book(message):
@@ -94,7 +93,13 @@ def save_book(message):
     data["books"][key] = file_id
     save()
 
-    bot.reply_to(message, f"{key} saved ✅")
+    bot_username = bot.get_me().username
+    deep_link = f"https://t.me/{bot_username}?start={key}"
+
+    bot.reply_to(
+        message,
+        f"✅ Book saved!\n\n🔗 Unique Link:\n{deep_link}"
+    )
 
 @app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
