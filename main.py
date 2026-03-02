@@ -5,7 +5,7 @@ import json
 
 TOKEN = "8514168337:AAFi-EBRfCttHxQH2iWDfRLirDINqMOfYYY"
 ADMIN_ID = 7371121826
-CHANNELS = ["@jeetrackerz", "@JEECBSENEETBOOKS"]
+FORCE_CHANNEL = "@JEECBSENEETBOOKS"
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
@@ -23,11 +23,11 @@ def save():
         json.dump(data, f)
 
 def is_joined(user_id):
-    for ch in CHANNELS:
-        member = bot.get_chat_member(ch, user_id)
-        if member.status not in ["member", "administrator", "creator"]:
-            return False
-    return True
+    try:
+        member = bot.get_chat_member(FORCE_CHANNEL, user_id)
+        return member.status in ["member", "administrator", "creator"]
+    except:
+        return False
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -40,19 +40,22 @@ def start(message):
         if not is_joined(user_id):
             markup = InlineKeyboardMarkup()
             markup.add(
-                InlineKeyboardButton("🔘 Join Channel 1", url="https://t.me/jeetrackerz")
+                InlineKeyboardButton(
+                    "🔘 Join Channel",
+                    url="https://t.me/JEECBSENEETBOOKS"
+                )
             )
             markup.add(
-                InlineKeyboardButton("🔘 Join Channel 2", url="https://t.me/JEECBSENEETBOOKS")
-            )
-            markup.add(
-                InlineKeyboardButton("🎀 Try Again", callback_data=f"check_{key}")
+                InlineKeyboardButton(
+                    "🎀 Try Again",
+                    callback_data=f"check_{key}"
+                )
             )
 
             bot.send_message(
                 message.chat.id,
                 "⚠️ Access Denied!\n\n"
-                "Pehle dono channel join karo.\n"
+                "Pehle channel join karo.\n"
                 "Join karne ke baad 🎀 Try Again dabao.",
                 reply_markup=markup
             )
@@ -72,7 +75,7 @@ def check_again(call):
     key = call.data.split("_")[1]
 
     if not is_joined(user_id):
-        bot.answer_callback_query(call.id, "Abhi bhi join nahi kiya 😒")
+        bot.answer_callback_query(call.id, "Abhi join nahi kiya 😒")
         return
 
     file_id = data["books"].get(key)
